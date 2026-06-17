@@ -1,0 +1,5080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wheel Rotation Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            padding: 10px;
+            line-height: 1.5;
+        }
+        
+        .header {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #4a9eff;
+        }
+        
+        .header .updated {
+            font-size: 14px;
+            color: #888;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-box {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #4a9eff;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+        
+        .wheelset {
+            background: #2a2a2a;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+        
+        .wheelset-header {
+            padding: 15px;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #3a3a3a;
+        }
+        
+        .wheelset-header:active {
+            background: #333;
+        }
+        
+        .wheelset-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4a9eff;
+        }
+        
+        .wheelset-info {
+            font-size: 12px;
+            color: #888;
+            margin-top: 3px;
+        }
+        
+        .spread-badge {
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        
+        .wheelset-content {
+            display: none;
+            padding: 15px;
+        }
+        
+        .wheelset.expanded .wheelset-content {
+            display: block;
+        }
+        
+        .wheelset.expanded .expand-icon::before {
+            content: "−";
+        }
+        
+        .expand-icon::before {
+            content: "+";
+            font-size: 24px;
+            font-weight: bold;
+            color: #4a9eff;
+        }
+        
+        .current-positions {
+            margin-bottom: 20px;
+        }
+        
+        .section-title {
+            font-size: 14px;
+            color: #4a9eff;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        
+        .wheel-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .wheel-position {
+            background: #1a1a1a;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 3px solid #4a9eff;
+        }
+        
+        .position-label {
+            font-size: 14px;
+            font-weight: bold;
+            color: #4a9eff;
+            margin-bottom: 5px;
+        }
+        
+        .wheel-id {
+            font-size: 16px;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 3px;
+        }
+        
+        .wheel-size {
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .suggestions {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .suggestion-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 8px;
+        }
+        
+        .suggestion-item {
+            padding: 10px;
+            background: #2a2a2a;
+            border-radius: 5px;
+            font-size: 11px;
+        }
+        
+        .suggestion-header {
+            font-size: 11px;
+            color: #000000;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .suggestion-moves {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            padding: 5px;
+        }
+        
+        .wheel-cell {
+            text-align: center;
+            font-size: 13px;
+            font-weight: bold;
+            padding: 4px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .wheel-cell.no-move {
+            color: #888888;
+        }
+        
+        .meta-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #666;
+            padding-top: 10px;
+            border-top: 1px solid #3a3a3a;
+        }
+        
+        .no-suggestion {
+            color: #000000;
+            font-style: italic;
+            text-align: center;
+            padding: 10px;
+        }
+        
+        /* Color coding for suggestion types (16 combinations) */
+        /* All (Green family) */
+        .highlight-cs-All {
+            background: #4ade80;
+            color: #000000;
+            font-weight: 600;
+        }
+        
+        .highlight-eq-All {
+            background: #86efac;
+            color: #000000;
+            font-weight: 600;
+        }
+        
+        .highlight-lw-All {
+            background: #bbf7d0;
+            color: #000000;
+            font-weight: 600;
+        }
+        
+        .highlight-cs-lw-All {
+            background: #dcfce7;
+            color: #000000;
+            font-weight: 600;
+        }
+        
+        /* Both (Yellow family) */
+        .highlight-cs-Both {
+            background: #fde047;
+            color: #000000;
+            font-weight: 600;
+        }
+        
+        .highlight-eq-Both {
+            background: #fef08a;
+            color: #000000;
+            font-weight: 600;
+        }
+        
+        .highlight-lw-Both {
+            background: #fef9c3;
+            color: #000000;
+            font-weight: 600;
+        }
+        
+        .highlight-cs-lw-Both {
+            background: #fefce8;
+            color: #000000;
+            font-weight: 600;
+        }
+        
+        /* Heelside (Orange family) */
+        .highlight-cs-Heelside {
+            background: #fb923c;
+            color: #000000;
+            font-weight: 600;
+        }
+        
+        .highlight-eq-Heelside {
+            background: #fdba74;
+            color: #000000;
+            font-weight: 600;
+        }
+        
+        .highlight-lw-Heelside {
+            background: #fed7aa;
+            color: #000000;
+            font-weight: 600;
+        }
+        
+        .highlight-cs-lw-Heelside {
+            background: #ffedd5;
+            color: #000000;
+            font-weight: 600;
+        }
+        
+        /* Toeside (Blue family) */
+        .highlight-cs-Toeside {
+            background: #60a5fa;
+            color: #000000;
+            font-weight: 600;
+        }
+        
+        .highlight-eq-Toeside {
+            background: #93c5fd;
+            color: #000000;
+            font-weight: 600;
+        }
+        
+        .highlight-lw-Toeside {
+            background: #bfdbfe;
+            color: #000000;
+            font-weight: 600;
+        }
+        
+        .highlight-cs-lw-Toeside {
+            background: #dbeafe;
+            color: #000000;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛹 Wheel Rotation Tracker</h1>
+        <div class="updated">Last updated: June 12, 2026 at 09:56 PM</div>
+    </div>
+    
+    <div class="stats">
+        <div class="stat-box">
+            <div class="stat-value">18</div>
+            <div class="stat-label">Total Wheelsets</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-value">10</div>
+            <div class="stat-label">Good Spread (&lt;1mm)</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-value">5</div>
+            <div class="stat-label">Needs Attention (&gt;2mm)</div>
+        </div>
+    </div>
+
+    <div class="wheelset">
+        <div class="wheelset-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <div>
+                <div class="wheelset-title">A1 Gummies</div>
+                <div class="wheelset-info">Rome• Cuei A1 Speed Gummy</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="spread-badge" style="background: #00a86b; color: white;">
+                    0.26mm
+                </div>
+                <div class="expand-icon"></div>
+            </div>
+        </div>
+        
+        <div class="wheelset-content">
+
+            <div class="current-positions">
+                <div class="section-title">Current Positions</div>
+                <div class="wheel-grid">
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Left</div>
+                        <div class="wheel-id">W4</div>
+                        <div class="wheel-size">77.93mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Right</div>
+                        <div class="wheel-id">W3</div>
+                        <div class="wheel-size">77.85mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Left</div>
+                        <div class="wheel-id">W2</div>
+                        <div class="wheel-size">77.67mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Right</div>
+                        <div class="wheel-id">W1</div>
+                        <div class="wheel-size">77.90mm</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="suggestions">
+                <div class="section-title">All Rotation Suggestions (16 combinations)</div>
+                <div class="suggestion-grid">
+
+                    <div class="suggestion-item highlight-cs-All">
+                        <div class="suggestion-header">CS-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(42)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-All">
+                        <div class="suggestion-header">EQ-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-All">
+                        <div class="suggestion-header">LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-All">
+                        <div class="suggestion-header">CS-LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Both">
+                        <div class="suggestion-header">CS-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(31)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Both">
+                        <div class="suggestion-header">EQ-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Both">
+                        <div class="suggestion-header">LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Both">
+                        <div class="suggestion-header">CS-LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Heelside">
+                        <div class="suggestion-header">CS-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(9)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Heelside">
+                        <div class="suggestion-header">EQ-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Heelside">
+                        <div class="suggestion-header">LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Heelside">
+                        <div class="suggestion-header">CS-LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Toeside">
+                        <div class="suggestion-header">CS-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Toeside">
+                        <div class="suggestion-header">EQ-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Toeside">
+                        <div class="suggestion-header">LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Toeside">
+                        <div class="suggestion-header">CS-LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="meta-info">
+                <span>Last session: 2026-05-31</span>
+                <span>Both</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="wheelset">
+        <div class="wheelset-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <div>
+                <div class="wheelset-title">A1 White</div>
+                <div class="wheelset-info">Rome• Cuei A1 White</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="spread-badge" style="background: #ff4444; color: white;">
+                    3.71mm
+                </div>
+                <div class="expand-icon"></div>
+            </div>
+        </div>
+        
+        <div class="wheelset-content">
+
+            <div class="current-positions">
+                <div class="section-title">Current Positions</div>
+                <div class="wheel-grid">
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Left</div>
+                        <div class="wheel-id">W1</div>
+                        <div class="wheel-size">67.70mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Right</div>
+                        <div class="wheel-id">W2</div>
+                        <div class="wheel-size">64.34mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Left</div>
+                        <div class="wheel-id">W4</div>
+                        <div class="wheel-size">68.05mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Right</div>
+                        <div class="wheel-id">W3</div>
+                        <div class="wheel-size">67.95mm</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="suggestions">
+                <div class="section-title">All Rotation Suggestions (16 combinations)</div>
+                <div class="suggestion-grid">
+
+                    <div class="suggestion-item highlight-cs-All">
+                        <div class="suggestion-header">CS-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(42)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-All">
+                        <div class="suggestion-header">EQ-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(4)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-All">
+                        <div class="suggestion-header">LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-All">
+                        <div class="suggestion-header">CS-LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Both">
+                        <div class="suggestion-header">CS-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(31)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Both">
+                        <div class="suggestion-header">EQ-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Both">
+                        <div class="suggestion-header">LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Both">
+                        <div class="suggestion-header">CS-LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Heelside">
+                        <div class="suggestion-header">CS-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(9)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Heelside">
+                        <div class="suggestion-header">EQ-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(3)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Heelside">
+                        <div class="suggestion-header">LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Heelside">
+                        <div class="suggestion-header">CS-LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Toeside">
+                        <div class="suggestion-header">CS-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Toeside">
+                        <div class="suggestion-header">EQ-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Toeside">
+                        <div class="suggestion-header">LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Toeside">
+                        <div class="suggestion-header">CS-LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="meta-info">
+                <span>Last session: 2026-06-07</span>
+                <span>Both</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="wheelset">
+        <div class="wheelset-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <div>
+                <div class="wheelset-title">A1 Yellow</div>
+                <div class="wheelset-info">Rome• Cuei A1 Yellow</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="spread-badge" style="background: #00a86b; color: white;">
+                    0.83mm
+                </div>
+                <div class="expand-icon"></div>
+            </div>
+        </div>
+        
+        <div class="wheelset-content">
+
+            <div class="current-positions">
+                <div class="section-title">Current Positions</div>
+                <div class="wheel-grid">
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Left</div>
+                        <div class="wheel-id">W4</div>
+                        <div class="wheel-size">73.40mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Right</div>
+                        <div class="wheel-id">W2</div>
+                        <div class="wheel-size">73.82mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Left</div>
+                        <div class="wheel-id">W3</div>
+                        <div class="wheel-size">74.12mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Right</div>
+                        <div class="wheel-id">W1</div>
+                        <div class="wheel-size">74.23mm</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="suggestions">
+                <div class="section-title">All Rotation Suggestions (16 combinations)</div>
+                <div class="suggestion-grid">
+
+                    <div class="suggestion-item highlight-cs-All">
+                        <div class="suggestion-header">CS-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(42)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-All">
+                        <div class="suggestion-header">EQ-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(4)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-All">
+                        <div class="suggestion-header">LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-All">
+                        <div class="suggestion-header">CS-LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Both">
+                        <div class="suggestion-header">CS-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(31)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Both">
+                        <div class="suggestion-header">EQ-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(3)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Both">
+                        <div class="suggestion-header">LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Both">
+                        <div class="suggestion-header">CS-LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Heelside">
+                        <div class="suggestion-header">CS-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(9)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Heelside">
+                        <div class="suggestion-header">EQ-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Heelside">
+                        <div class="suggestion-header">LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Heelside">
+                        <div class="suggestion-header">CS-LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Toeside">
+                        <div class="suggestion-header">CS-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Toeside">
+                        <div class="suggestion-header">EQ-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Toeside">
+                        <div class="suggestion-header">LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Toeside">
+                        <div class="suggestion-header">CS-LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="meta-info">
+                <span>Last session: 2026-06-06</span>
+                <span>Both</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="wheelset">
+        <div class="wheelset-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <div>
+                <div class="wheelset-title">Abec Freerides</div>
+                <div class="wheelset-info">Rome• Abec 11 Freerides</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="spread-badge" style="background: #ff4444; color: white;">
+                    2.34mm
+                </div>
+                <div class="expand-icon"></div>
+            </div>
+        </div>
+        
+        <div class="wheelset-content">
+
+            <div class="current-positions">
+                <div class="section-title">Current Positions</div>
+                <div class="wheel-grid">
+
+                </div>
+            </div>
+
+            <div class="suggestions">
+                <div class="section-title">All Rotation Suggestions (16 combinations)</div>
+                <div class="suggestion-grid">
+
+                    <div class="suggestion-item highlight-cs-All">
+                        <div class="suggestion-header">CS-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(42)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-All">
+                        <div class="suggestion-header">EQ-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-All">
+                        <div class="suggestion-header">LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-All">
+                        <div class="suggestion-header">CS-LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Both">
+                        <div class="suggestion-header">CS-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(31)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Both">
+                        <div class="suggestion-header">EQ-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Both">
+                        <div class="suggestion-header">LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Both">
+                        <div class="suggestion-header">CS-LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Heelside">
+                        <div class="suggestion-header">CS-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(9)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Heelside">
+                        <div class="suggestion-header">EQ-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Heelside">
+                        <div class="suggestion-header">LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Heelside">
+                        <div class="suggestion-header">CS-LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Toeside">
+                        <div class="suggestion-header">CS-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Toeside">
+                        <div class="suggestion-header">EQ-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Toeside">
+                        <div class="suggestion-header">LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Toeside">
+                        <div class="suggestion-header">CS-LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="meta-info">
+                <span>Last session: 2025-12-19</span>
+                <span>Baseline</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="wheelset">
+        <div class="wheelset-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <div>
+                <div class="wheelset-title">Biggies</div>
+                <div class="wheelset-info">Rome• Landyachtz Biggie Hawgs</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="spread-badge" style="background: #00a86b; color: white;">
+                    0.63mm
+                </div>
+                <div class="expand-icon"></div>
+            </div>
+        </div>
+        
+        <div class="wheelset-content">
+
+            <div class="current-positions">
+                <div class="section-title">Current Positions</div>
+                <div class="wheel-grid">
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Left</div>
+                        <div class="wheel-id">W4</div>
+                        <div class="wheel-size">69.49mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Right</div>
+                        <div class="wheel-id">W1</div>
+                        <div class="wheel-size">68.86mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Left</div>
+                        <div class="wheel-id">W2</div>
+                        <div class="wheel-size">69.29mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Right</div>
+                        <div class="wheel-id">W3</div>
+                        <div class="wheel-size">69.22mm</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="suggestions">
+                <div class="section-title">All Rotation Suggestions (16 combinations)</div>
+                <div class="suggestion-grid">
+
+                    <div class="suggestion-item highlight-cs-All">
+                        <div class="suggestion-header">CS-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(42)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-All">
+                        <div class="suggestion-header">EQ-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(4)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-All">
+                        <div class="suggestion-header">LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-All">
+                        <div class="suggestion-header">CS-LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Both">
+                        <div class="suggestion-header">CS-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(31)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Both">
+                        <div class="suggestion-header">EQ-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(4)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Both">
+                        <div class="suggestion-header">LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Both">
+                        <div class="suggestion-header">CS-LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Heelside">
+                        <div class="suggestion-header">CS-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(9)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Heelside">
+                        <div class="suggestion-header">EQ-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Heelside">
+                        <div class="suggestion-header">LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Heelside">
+                        <div class="suggestion-header">CS-LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Toeside">
+                        <div class="suggestion-header">CS-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Toeside">
+                        <div class="suggestion-header">EQ-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Toeside">
+                        <div class="suggestion-header">LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Toeside">
+                        <div class="suggestion-header">CS-LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="meta-info">
+                <span>Last session: 2026-05-18</span>
+                <span>Both</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="wheelset">
+        <div class="wheelset-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <div>
+                <div class="wheelset-title">Byrons</div>
+                <div class="wheelset-info">London• Powell Peralta SSF Byron Essert</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="spread-badge" style="background: #00a86b; color: white;">
+                    0.21mm
+                </div>
+                <div class="expand-icon"></div>
+            </div>
+        </div>
+        
+        <div class="wheelset-content">
+
+            <div class="current-positions">
+                <div class="section-title">Current Positions</div>
+                <div class="wheel-grid">
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Left</div>
+                        <div class="wheel-id">W2</div>
+                        <div class="wheel-size">67.21mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Right</div>
+                        <div class="wheel-id">W1</div>
+                        <div class="wheel-size">67.28mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Left</div>
+                        <div class="wheel-id">W4</div>
+                        <div class="wheel-size">67.41mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Right</div>
+                        <div class="wheel-id">W3</div>
+                        <div class="wheel-size">67.42mm</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="suggestions">
+                <div class="section-title">All Rotation Suggestions (16 combinations)</div>
+                <div class="suggestion-grid">
+
+                    <div class="suggestion-item highlight-cs-All">
+                        <div class="suggestion-header">CS-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(42)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-All">
+                        <div class="suggestion-header">EQ-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-All">
+                        <div class="suggestion-header">LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-All">
+                        <div class="suggestion-header">CS-LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Both">
+                        <div class="suggestion-header">CS-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(31)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Both">
+                        <div class="suggestion-header">EQ-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Both">
+                        <div class="suggestion-header">LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Both">
+                        <div class="suggestion-header">CS-LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Heelside">
+                        <div class="suggestion-header">CS-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(9)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Heelside">
+                        <div class="suggestion-header">EQ-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Heelside">
+                        <div class="suggestion-header">LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Heelside">
+                        <div class="suggestion-header">CS-LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Toeside">
+                        <div class="suggestion-header">CS-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Toeside">
+                        <div class="suggestion-header">EQ-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Toeside">
+                        <div class="suggestion-header">LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Toeside">
+                        <div class="suggestion-header">CS-LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="meta-info">
+                <span>Last session: 2026-02-25</span>
+                <span>Toeside</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="wheelset">
+        <div class="wheelset-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <div>
+                <div class="wheelset-title">Decathlon</div>
+                <div class="wheelset-info">Rome• Decathlon Slide "O" Meter</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="spread-badge" style="background: #00a86b; color: white;">
+                    0.54mm
+                </div>
+                <div class="expand-icon"></div>
+            </div>
+        </div>
+        
+        <div class="wheelset-content">
+
+            <div class="current-positions">
+                <div class="section-title">Current Positions</div>
+                <div class="wheel-grid">
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Left</div>
+                        <div class="wheel-id">W3</div>
+                        <div class="wheel-size">68.20mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Right</div>
+                        <div class="wheel-id">W1</div>
+                        <div class="wheel-size">67.66mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Left</div>
+                        <div class="wheel-id">W2</div>
+                        <div class="wheel-size">68.01mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Right</div>
+                        <div class="wheel-id">W4</div>
+                        <div class="wheel-size">67.77mm</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="suggestions">
+                <div class="section-title">All Rotation Suggestions (16 combinations)</div>
+                <div class="suggestion-grid">
+
+                    <div class="suggestion-item highlight-cs-All">
+                        <div class="suggestion-header">CS-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(42)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-All">
+                        <div class="suggestion-header">EQ-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-All">
+                        <div class="suggestion-header">LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-All">
+                        <div class="suggestion-header">CS-LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Both">
+                        <div class="suggestion-header">CS-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(31)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Both">
+                        <div class="suggestion-header">EQ-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Both">
+                        <div class="suggestion-header">LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Both">
+                        <div class="suggestion-header">CS-LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Heelside">
+                        <div class="suggestion-header">CS-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(9)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Heelside">
+                        <div class="suggestion-header">EQ-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Heelside">
+                        <div class="suggestion-header">LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Heelside">
+                        <div class="suggestion-header">CS-LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Toeside">
+                        <div class="suggestion-header">CS-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Toeside">
+                        <div class="suggestion-header">EQ-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Toeside">
+                        <div class="suggestion-header">LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Toeside">
+                        <div class="suggestion-header">CS-LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="meta-info">
+                <span>Last session: 2026-03-14</span>
+                <span>Both</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="wheelset">
+        <div class="wheelset-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <div>
+                <div class="wheelset-title">Gumballs</div>
+                <div class="wheelset-info">London• Abec 11 Gumballs</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="spread-badge" style="background: #ff4444; color: white;">
+                    2.17mm
+                </div>
+                <div class="expand-icon"></div>
+            </div>
+        </div>
+        
+        <div class="wheelset-content">
+
+            <div class="current-positions">
+                <div class="section-title">Current Positions</div>
+                <div class="wheel-grid">
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Left</div>
+                        <div class="wheel-id">W4</div>
+                        <div class="wheel-size">71.40mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Right</div>
+                        <div class="wheel-id">W2</div>
+                        <div class="wheel-size">70.17mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Left</div>
+                        <div class="wheel-id">W3</div>
+                        <div class="wheel-size">70.24mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Right</div>
+                        <div class="wheel-id">W1</div>
+                        <div class="wheel-size">69.23mm</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="suggestions">
+                <div class="section-title">All Rotation Suggestions (16 combinations)</div>
+                <div class="suggestion-grid">
+
+                    <div class="suggestion-item highlight-cs-All">
+                        <div class="suggestion-header">CS-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(42)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-All">
+                        <div class="suggestion-header">EQ-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(6)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-All">
+                        <div class="suggestion-header">LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-All">
+                        <div class="suggestion-header">CS-LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Both">
+                        <div class="suggestion-header">CS-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(31)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Both">
+                        <div class="suggestion-header">EQ-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(6)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Both">
+                        <div class="suggestion-header">LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Both">
+                        <div class="suggestion-header">CS-LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Heelside">
+                        <div class="suggestion-header">CS-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(9)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Heelside">
+                        <div class="suggestion-header">EQ-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Heelside">
+                        <div class="suggestion-header">LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Heelside">
+                        <div class="suggestion-header">CS-LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Toeside">
+                        <div class="suggestion-header">CS-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Toeside">
+                        <div class="suggestion-header">EQ-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Toeside">
+                        <div class="suggestion-header">LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Toeside">
+                        <div class="suggestion-header">CS-LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="meta-info">
+                <span>Last session: 2026-05-02</span>
+                <span>Both</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="wheelset">
+        <div class="wheelset-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <div>
+                <div class="wheelset-title">Harfang</div>
+                <div class="wheelset-info">London• Harfang Absolute Regular</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="spread-badge" style="background: #ff4444; color: white;">
+                    2.34mm
+                </div>
+                <div class="expand-icon"></div>
+            </div>
+        </div>
+        
+        <div class="wheelset-content">
+
+            <div class="current-positions">
+                <div class="section-title">Current Positions</div>
+                <div class="wheel-grid">
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Left</div>
+                        <div class="wheel-id">W4</div>
+                        <div class="wheel-size">68.07mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Right</div>
+                        <div class="wheel-id">W1</div>
+                        <div class="wheel-size">68.78mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Left</div>
+                        <div class="wheel-id">W3</div>
+                        <div class="wheel-size">68.61mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Right</div>
+                        <div class="wheel-id">W2</div>
+                        <div class="wheel-size">66.44mm</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="suggestions">
+                <div class="section-title">All Rotation Suggestions (16 combinations)</div>
+                <div class="suggestion-grid">
+
+                    <div class="suggestion-item highlight-cs-All">
+                        <div class="suggestion-header">CS-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(42)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-All">
+                        <div class="suggestion-header">EQ-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(5)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-All">
+                        <div class="suggestion-header">LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-All">
+                        <div class="suggestion-header">CS-LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Both">
+                        <div class="suggestion-header">CS-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(31)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Both">
+                        <div class="suggestion-header">EQ-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Both">
+                        <div class="suggestion-header">LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Both">
+                        <div class="suggestion-header">CS-LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Heelside">
+                        <div class="suggestion-header">CS-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(9)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Heelside">
+                        <div class="suggestion-header">EQ-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(5)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Heelside">
+                        <div class="suggestion-header">LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Heelside">
+                        <div class="suggestion-header">CS-LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Toeside">
+                        <div class="suggestion-header">CS-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Toeside">
+                        <div class="suggestion-header">EQ-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Toeside">
+                        <div class="suggestion-header">LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Toeside">
+                        <div class="suggestion-header">CS-LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="meta-info">
+                <span>Last session: 2026-04-18</span>
+                <span>Heelside</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="wheelset">
+        <div class="wheelset-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <div>
+                <div class="wheelset-title">Mags Red</div>
+                <div class="wheelset-info">Rome• Venom Magnum Mach 1 Red Leaves</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="spread-badge" style="background: #00a86b; color: white;">
+                    0.12mm
+                </div>
+                <div class="expand-icon"></div>
+            </div>
+        </div>
+        
+        <div class="wheelset-content">
+
+            <div class="current-positions">
+                <div class="section-title">Current Positions</div>
+                <div class="wheel-grid">
+
+                </div>
+            </div>
+
+            <div class="suggestions">
+                <div class="section-title">All Rotation Suggestions (16 combinations)</div>
+                <div class="suggestion-grid">
+
+                    <div class="suggestion-item highlight-cs-All">
+                        <div class="suggestion-header">CS-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(42)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-All">
+                        <div class="suggestion-header">EQ-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-All">
+                        <div class="suggestion-header">LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-All">
+                        <div class="suggestion-header">CS-LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Both">
+                        <div class="suggestion-header">CS-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(31)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Both">
+                        <div class="suggestion-header">EQ-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Both">
+                        <div class="suggestion-header">LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Both">
+                        <div class="suggestion-header">CS-LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Heelside">
+                        <div class="suggestion-header">CS-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(9)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Heelside">
+                        <div class="suggestion-header">EQ-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Heelside">
+                        <div class="suggestion-header">LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Heelside">
+                        <div class="suggestion-header">CS-LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Toeside">
+                        <div class="suggestion-header">CS-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Toeside">
+                        <div class="suggestion-header">EQ-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Toeside">
+                        <div class="suggestion-header">LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Toeside">
+                        <div class="suggestion-header">CS-LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="meta-info">
+                <span>Last session: 2025-12-04</span>
+                <span>Baseline</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="wheelset">
+        <div class="wheelset-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <div>
+                <div class="wheelset-title">Mags Red B</div>
+                <div class="wheelset-info">Rome• Venom Magnum Mach 1 Red Leaves</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="spread-badge" style="background: #ffa500; color: white;">
+                    1.25mm
+                </div>
+                <div class="expand-icon"></div>
+            </div>
+        </div>
+        
+        <div class="wheelset-content">
+
+            <div class="current-positions">
+                <div class="section-title">Current Positions</div>
+                <div class="wheel-grid">
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Left</div>
+                        <div class="wheel-id">W4</div>
+                        <div class="wheel-size">73.00mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Right</div>
+                        <div class="wheel-id">W1</div>
+                        <div class="wheel-size">73.64mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Left</div>
+                        <div class="wheel-id">W3</div>
+                        <div class="wheel-size">74.25mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Right</div>
+                        <div class="wheel-id">W2</div>
+                        <div class="wheel-size">74.02mm</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="suggestions">
+                <div class="section-title">All Rotation Suggestions (16 combinations)</div>
+                <div class="suggestion-grid">
+
+                    <div class="suggestion-item highlight-cs-All">
+                        <div class="suggestion-header">CS-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(42)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-All">
+                        <div class="suggestion-header">EQ-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(5)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-All">
+                        <div class="suggestion-header">LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-All">
+                        <div class="suggestion-header">CS-LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Both">
+                        <div class="suggestion-header">CS-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(31)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Both">
+                        <div class="suggestion-header">EQ-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(5)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Both">
+                        <div class="suggestion-header">LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Both">
+                        <div class="suggestion-header">CS-LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Heelside">
+                        <div class="suggestion-header">CS-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(9)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Heelside">
+                        <div class="suggestion-header">EQ-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Heelside">
+                        <div class="suggestion-header">LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Heelside">
+                        <div class="suggestion-header">CS-LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Toeside">
+                        <div class="suggestion-header">CS-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Toeside">
+                        <div class="suggestion-header">EQ-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Toeside">
+                        <div class="suggestion-header">LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Toeside">
+                        <div class="suggestion-header">CS-LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="meta-info">
+                <span>Last session: 2026-06-12</span>
+                <span>Both</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="wheelset">
+        <div class="wheelset-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <div>
+                <div class="wheelset-title">Mags Red C</div>
+                <div class="wheelset-info">Rome• Venom Magnum Mach 1 Red Leaves</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="spread-badge" style="background: #00a86b; color: white;">
+                    0.42mm
+                </div>
+                <div class="expand-icon"></div>
+            </div>
+        </div>
+        
+        <div class="wheelset-content">
+
+            <div class="current-positions">
+                <div class="section-title">Current Positions</div>
+                <div class="wheel-grid">
+
+                </div>
+            </div>
+
+            <div class="suggestions">
+                <div class="section-title">All Rotation Suggestions (16 combinations)</div>
+                <div class="suggestion-grid">
+
+                    <div class="suggestion-item highlight-cs-All">
+                        <div class="suggestion-header">CS-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(42)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-All">
+                        <div class="suggestion-header">EQ-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-All">
+                        <div class="suggestion-header">LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-All">
+                        <div class="suggestion-header">CS-LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Both">
+                        <div class="suggestion-header">CS-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(31)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Both">
+                        <div class="suggestion-header">EQ-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Both">
+                        <div class="suggestion-header">LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Both">
+                        <div class="suggestion-header">CS-LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Heelside">
+                        <div class="suggestion-header">CS-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(9)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Heelside">
+                        <div class="suggestion-header">EQ-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Heelside">
+                        <div class="suggestion-header">LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Heelside">
+                        <div class="suggestion-header">CS-LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Toeside">
+                        <div class="suggestion-header">CS-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Toeside">
+                        <div class="suggestion-header">EQ-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Toeside">
+                        <div class="suggestion-header">LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Toeside">
+                        <div class="suggestion-header">CS-LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="meta-info">
+                <span>Last session: 2026-06-06</span>
+                <span>Baseline</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="wheelset">
+        <div class="wheelset-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <div>
+                <div class="wheelset-title">Merlins</div>
+                <div class="wheelset-info">London• Slide Perfect Merlins</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="spread-badge" style="background: #00a86b; color: white;">
+                    0.3mm
+                </div>
+                <div class="expand-icon"></div>
+            </div>
+        </div>
+        
+        <div class="wheelset-content">
+
+            <div class="current-positions">
+                <div class="section-title">Current Positions</div>
+                <div class="wheel-grid">
+
+                </div>
+            </div>
+
+            <div class="suggestions">
+                <div class="section-title">All Rotation Suggestions (16 combinations)</div>
+                <div class="suggestion-grid">
+
+                    <div class="suggestion-item highlight-cs-All">
+                        <div class="suggestion-header">CS-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(42)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-All">
+                        <div class="suggestion-header">EQ-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-All">
+                        <div class="suggestion-header">LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-All">
+                        <div class="suggestion-header">CS-LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Both">
+                        <div class="suggestion-header">CS-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(31)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Both">
+                        <div class="suggestion-header">EQ-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Both">
+                        <div class="suggestion-header">LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Both">
+                        <div class="suggestion-header">CS-LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Heelside">
+                        <div class="suggestion-header">CS-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(9)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Heelside">
+                        <div class="suggestion-header">EQ-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Heelside">
+                        <div class="suggestion-header">LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Heelside">
+                        <div class="suggestion-header">CS-LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Toeside">
+                        <div class="suggestion-header">CS-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Toeside">
+                        <div class="suggestion-header">EQ-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Toeside">
+                        <div class="suggestion-header">LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Toeside">
+                        <div class="suggestion-header">CS-LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="meta-info">
+                <span>Last session: 2025-12-04</span>
+                <span>Baseline</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="wheelset">
+        <div class="wheelset-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <div>
+                <div class="wheelset-title">Primos</div>
+                <div class="wheelset-info">London• Powell Peralta Primo</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="spread-badge" style="background: #ffa500; color: white;">
+                    1.19mm
+                </div>
+                <div class="expand-icon"></div>
+            </div>
+        </div>
+        
+        <div class="wheelset-content">
+
+            <div class="current-positions">
+                <div class="section-title">Current Positions</div>
+                <div class="wheel-grid">
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Left</div>
+                        <div class="wheel-id">W3</div>
+                        <div class="wheel-size">58.91mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Right</div>
+                        <div class="wheel-id">W1</div>
+                        <div class="wheel-size">58.75mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Left</div>
+                        <div class="wheel-id">W4</div>
+                        <div class="wheel-size">58.96mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Right</div>
+                        <div class="wheel-id">W2</div>
+                        <div class="wheel-size">57.77mm</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="suggestions">
+                <div class="section-title">All Rotation Suggestions (16 combinations)</div>
+                <div class="suggestion-grid">
+
+                    <div class="suggestion-item highlight-cs-All">
+                        <div class="suggestion-header">CS-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(42)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-All">
+                        <div class="suggestion-header">EQ-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(3)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-All">
+                        <div class="suggestion-header">LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-All">
+                        <div class="suggestion-header">CS-LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Both">
+                        <div class="suggestion-header">CS-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(31)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Both">
+                        <div class="suggestion-header">EQ-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(3)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Both">
+                        <div class="suggestion-header">LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Both">
+                        <div class="suggestion-header">CS-LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Heelside">
+                        <div class="suggestion-header">CS-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(9)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Heelside">
+                        <div class="suggestion-header">EQ-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Heelside">
+                        <div class="suggestion-header">LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Heelside">
+                        <div class="suggestion-header">CS-LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Toeside">
+                        <div class="suggestion-header">CS-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Toeside">
+                        <div class="suggestion-header">EQ-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Toeside">
+                        <div class="suggestion-header">LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Toeside">
+                        <div class="suggestion-header">CS-LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="meta-info">
+                <span>Last session: 2026-02-14</span>
+                <span>Both</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="wheelset">
+        <div class="wheelset-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <div>
+                <div class="wheelset-title">Roi</div>
+                <div class="wheelset-info">Rome• Dui Roo</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="spread-badge" style="background: #ffa500; color: white;">
+                    1.3mm
+                </div>
+                <div class="expand-icon"></div>
+            </div>
+        </div>
+        
+        <div class="wheelset-content">
+
+            <div class="current-positions">
+                <div class="section-title">Current Positions</div>
+                <div class="wheel-grid">
+
+                </div>
+            </div>
+
+            <div class="suggestions">
+                <div class="section-title">All Rotation Suggestions (16 combinations)</div>
+                <div class="suggestion-grid">
+
+                    <div class="suggestion-item highlight-cs-All">
+                        <div class="suggestion-header">CS-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(42)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-All">
+                        <div class="suggestion-header">EQ-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-All">
+                        <div class="suggestion-header">LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-All">
+                        <div class="suggestion-header">CS-LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Both">
+                        <div class="suggestion-header">CS-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(31)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Both">
+                        <div class="suggestion-header">EQ-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Both">
+                        <div class="suggestion-header">LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Both">
+                        <div class="suggestion-header">CS-LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Heelside">
+                        <div class="suggestion-header">CS-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(9)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Heelside">
+                        <div class="suggestion-header">EQ-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Heelside">
+                        <div class="suggestion-header">LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Heelside">
+                        <div class="suggestion-header">CS-LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Toeside">
+                        <div class="suggestion-header">CS-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Toeside">
+                        <div class="suggestion-header">EQ-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Toeside">
+                        <div class="suggestion-header">LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Toeside">
+                        <div class="suggestion-header">CS-LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="meta-info">
+                <span>Last session: 2025-12-19</span>
+                <span>Baseline</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="wheelset">
+        <div class="wheelset-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <div>
+                <div class="wheelset-title">Supremacy</div>
+                <div class="wheelset-info">London• Slide Perfect Supremacy</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="spread-badge" style="background: #ff4444; color: white;">
+                    2.72mm
+                </div>
+                <div class="expand-icon"></div>
+            </div>
+        </div>
+        
+        <div class="wheelset-content">
+
+            <div class="current-positions">
+                <div class="section-title">Current Positions</div>
+                <div class="wheel-grid">
+
+                </div>
+            </div>
+
+            <div class="suggestions">
+                <div class="section-title">All Rotation Suggestions (16 combinations)</div>
+                <div class="suggestion-grid">
+
+                    <div class="suggestion-item highlight-cs-All">
+                        <div class="suggestion-header">CS-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(42)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-All">
+                        <div class="suggestion-header">EQ-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-All">
+                        <div class="suggestion-header">LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-All">
+                        <div class="suggestion-header">CS-LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Both">
+                        <div class="suggestion-header">CS-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(31)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Both">
+                        <div class="suggestion-header">EQ-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Both">
+                        <div class="suggestion-header">LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Both">
+                        <div class="suggestion-header">CS-LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Heelside">
+                        <div class="suggestion-header">CS-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(9)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Heelside">
+                        <div class="suggestion-header">EQ-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Heelside">
+                        <div class="suggestion-header">LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Heelside">
+                        <div class="suggestion-header">CS-LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Toeside">
+                        <div class="suggestion-header">CS-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Toeside">
+                        <div class="suggestion-header">EQ-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Toeside">
+                        <div class="suggestion-header">LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Toeside">
+                        <div class="suggestion-header">CS-LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="meta-info">
+                <span>Last session: 2025-12-07</span>
+                <span>Baseline</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="wheelset">
+        <div class="wheelset-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <div>
+                <div class="wheelset-title">These</div>
+                <div class="wheelset-info">London• These Wheels</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="spread-badge" style="background: #00a86b; color: white;">
+                    0.57mm
+                </div>
+                <div class="expand-icon"></div>
+            </div>
+        </div>
+        
+        <div class="wheelset-content">
+
+            <div class="current-positions">
+                <div class="section-title">Current Positions</div>
+                <div class="wheel-grid">
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Left</div>
+                        <div class="wheel-id">W2</div>
+                        <div class="wheel-size">63.92mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Right</div>
+                        <div class="wheel-id">W3</div>
+                        <div class="wheel-size">63.49mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Left</div>
+                        <div class="wheel-id">W4</div>
+                        <div class="wheel-size">64.06mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Right</div>
+                        <div class="wheel-id">W1</div>
+                        <div class="wheel-size">63.61mm</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="suggestions">
+                <div class="section-title">All Rotation Suggestions (16 combinations)</div>
+                <div class="suggestion-grid">
+
+                    <div class="suggestion-item highlight-cs-All">
+                        <div class="suggestion-header">CS-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(42)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-All">
+                        <div class="suggestion-header">EQ-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(5)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-All">
+                        <div class="suggestion-header">LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-All">
+                        <div class="suggestion-header">CS-LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Both">
+                        <div class="suggestion-header">CS-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(31)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Both">
+                        <div class="suggestion-header">EQ-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(5)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Both">
+                        <div class="suggestion-header">LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Both">
+                        <div class="suggestion-header">CS-LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Heelside">
+                        <div class="suggestion-header">CS-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(9)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Heelside">
+                        <div class="suggestion-header">EQ-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Heelside">
+                        <div class="suggestion-header">LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Heelside">
+                        <div class="suggestion-header">CS-LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Toeside">
+                        <div class="suggestion-header">CS-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Toeside">
+                        <div class="suggestion-header">EQ-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Toeside">
+                        <div class="suggestion-header">LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Toeside">
+                        <div class="suggestion-header">CS-LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W2</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="meta-info">
+                <span>Last session: 2026-03-22</span>
+                <span>Both</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="wheelset">
+        <div class="wheelset-header" onclick="this.parentElement.classList.toggle('expanded')">
+            <div>
+                <div class="wheelset-title">Vice</div>
+                <div class="wheelset-info">London• Arbor Vice Tyler Howell</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="spread-badge" style="background: #00a86b; color: white;">
+                    0.28mm
+                </div>
+                <div class="expand-icon"></div>
+            </div>
+        </div>
+        
+        <div class="wheelset-content">
+
+            <div class="current-positions">
+                <div class="section-title">Current Positions</div>
+                <div class="wheel-grid">
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Left</div>
+                        <div class="wheel-id">W1</div>
+                        <div class="wheel-size">67.85mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Front Right</div>
+                        <div class="wheel-id">W2</div>
+                        <div class="wheel-size">67.98mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Left</div>
+                        <div class="wheel-id">W3</div>
+                        <div class="wheel-size">67.70mm</div>
+                    </div>
+
+                    <div class="wheel-position">
+                        <div class="position-label">Back Right</div>
+                        <div class="wheel-id">W4</div>
+                        <div class="wheel-size">67.88mm</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="suggestions">
+                <div class="section-title">All Rotation Suggestions (16 combinations)</div>
+                <div class="suggestion-grid">
+
+                    <div class="suggestion-item highlight-cs-All">
+                        <div class="suggestion-header">CS-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(42)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-All">
+                        <div class="suggestion-header">EQ-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-All">
+                        <div class="suggestion-header">LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-All">
+                        <div class="suggestion-header">CS-LW-All <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Both">
+                        <div class="suggestion-header">CS-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(31)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Both">
+                        <div class="suggestion-header">EQ-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Both">
+                        <div class="suggestion-header">LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Both">
+                        <div class="suggestion-header">CS-LW-Both <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell no-move">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Heelside">
+                        <div class="suggestion-header">CS-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(9)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Heelside">
+                        <div class="suggestion-header">EQ-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Heelside">
+                        <div class="suggestion-header">LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Heelside">
+                        <div class="suggestion-header">CS-LW-Heelside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-Toeside">
+                        <div class="suggestion-header">CS-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(2)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell no-move">W1</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell no-move">W4</div>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-eq-Toeside">
+                        <div class="suggestion-header">EQ-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-lw-Toeside">
+                        <div class="suggestion-header">LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(0)</span></div>
+                        <div class="suggestion-moves">
+
+                            <span class="no-suggestion">N/A</span>
+
+                        </div>
+                    </div>
+
+                    <div class="suggestion-item highlight-cs-lw-Toeside">
+                        <div class="suggestion-header">CS-LW-Toeside <span style="font-size:0.65rem; font-weight:400; opacity:0.8;">(1)</span></div>
+                        <div class="suggestion-moves">
+
+                            <div class="wheel-cell">W4</div>
+
+                            <div class="wheel-cell">W3</div>
+
+                            <div class="wheel-cell">W2</div>
+
+                            <div class="wheel-cell">W1</div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="meta-info">
+                <span>Last session: 2026-04-19</span>
+                <span>Both</span>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
